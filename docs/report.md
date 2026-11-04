@@ -4,7 +4,7 @@
 **Author:** Jayden Backus
 **Repository:** https://github.com/jaydenbackus/uvu-it3200-terraform-aks-identity
 
-> Command output from the live run on 2026-11-04 is saved in [`docs/evidence/`](evidence/). Portal screenshots go in `docs/screenshots/`. No secret appears in either.
+> Command output from the live run on 2026-11-04 is saved in [`docs/evidence/`](evidence/). Portal screenshots are in [`docs/screenshots/`](screenshots/). No secret appears in either.
 
 ## 1. Executive summary
 
@@ -40,7 +40,9 @@ Two settings changed from my first draft:
 - `Standard_B2s` is not offered in westus3 and my B-series v2 quota was 0, so the node size is `Standard_D2s_v6`.
 - AKS fills in default `upgrade_settings` on the node pool. Terraform saw that as drift and planned an in-place update on every apply, so I declared `max_surge = "10%"` to match.
 
-**Screenshots:** `screenshots/01-terraform-apply.png`, `02-aks-portal.png`, `03-acr-portal.png`.
+![AKS overview](screenshots/02-aks-overview.jpg)
+
+![AKS security configuration: Entra ID with Azure RBAC, local accounts disabled](screenshots/08-aks-security-config.jpg)
 
 ## 4. Identity and access management
 
@@ -59,7 +61,11 @@ The service principal signs in with a client secret that expires after 30 days. 
 
 **Why different identities?** Each identity does one job. A leaked deploy secret should not let an attacker pull every image or resize the cluster, and a compromised node should not be able to deploy workloads. Giving all of them the same rights would make the weakest credential as powerful as the strongest.
 
-**Evidence:** [12-sp-role-assignments.txt](evidence/12-sp-role-assignments.txt) lists the service principal's three roles and scopes. **Screenshot:** `screenshots/04-sp-overview.png` (Enterprise application page, no secrets).
+**Evidence:** [12-sp-role-assignments.txt](evidence/12-sp-role-assignments.txt) lists the service principal's three roles and scopes. ![Service principal in Entra ID](screenshots/06-sp-enterprise-app.jpg)
+
+![Role assignments on the AKS cluster](screenshots/05-aks-role-assignments.jpg)
+
+The portal lists assignments at the cluster scope. The service principal's RBAC Writer role sits on the child scope `…/namespaces/it3200-lab`, so it appears in the CLI output ([12](evidence/12-sp-role-assignments.txt)) but not on this page.
 
 ## 5. AKS and ACR integration
 
@@ -85,7 +91,9 @@ az role assignment list --assignee "$(terraform -chdir=terraform output -raw kub
 - *Auth failure vs. bad image name:* an auth failure says `unauthorized` / `401`. A wrong name or tag says `not found` / `manifest unknown`. A wrong registry hostname says `no such host`. `az acr repository show-tags` confirms whether the tag exists.
 - *Why Terraform:* the assignment is reviewed in a pull request, recreated whenever the cluster is rebuilt (the kubelet identity changes), and removed on destroy. A manual assignment is forgotten, drifts, and outlives the cluster.
 
-**Evidence:** [03-kubelet-acrpull.txt](evidence/03-kubelet-acrpull.txt) shows one assignment for the kubelet identity: `AcrPull` on `acruvuit3200jayden`.
+**Evidence:** [03-kubelet-acrpull.txt](evidence/03-kubelet-acrpull.txt) shows one assignment for the kubelet identity: `AcrPull` on `acruvuit3200jayden`. In the portal, the identity appears as `aks-uvu-it3200-jayden-agentpool`, a managed identity, with AcrPull scoped to this resource:
+
+![Kubelet identity holds AcrPull on the registry](screenshots/04-kubelet-acrpull.jpg)
 
 ## 6. Service principal authentication testing
 
@@ -197,7 +205,9 @@ The `Pulled` event and the pod's `Image ID` (same digest as in ACR) prove the no
 | `ImagePullBackOff` | Kubernetes is waiting longer between pull retries after repeated failures. |
 | `CrashLoopBackOff` | The image pulled and the container started, but it keeps exiting. Check `kubectl logs --previous`. |
 
-**Screenshots:** `screenshots/09-acr-image.png` (repository in the portal), `screenshots/12-app-browser.png` (page at `http://localhost:8080`).
+![Image hello-it3200:v1 in ACR](screenshots/03-acr-image.jpg)
+
+![App at http://localhost:8080 through kubectl port-forward](screenshots/07-app-browser.jpg)
 
 **Limits I tested** ([16](evidence/16-sp-denied-actions.txt)). As the service principal, each of these was denied:
 
