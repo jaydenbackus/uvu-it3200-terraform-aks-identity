@@ -1,0 +1,13 @@
+# ClusterIP: reachable inside the cluster and through kubectl port-forward.
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-it3200
+  namespace: it3200-lab
+spec:
+  type: ClusterIP
+  selector:
+    app: hello-it3200
+  ports:
+    - port: 80
+      targetPort: 8080

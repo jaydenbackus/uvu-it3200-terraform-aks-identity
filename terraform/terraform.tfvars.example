@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars (ignored by Git) and fill in.
+subscription_id = "00000000-0000-0000-0000-000000000000"
+student_name    = "jayden"
+location        = "westus3"
+
+# Optional overrides
+# node_vm_size               = "Standard_B2s"
+# app_namespace              = "it3200-lab"
+# admin_user_object_id       = "00000000-0000-0000-0000-000000000000"
+# enable_kubelet_acr_pull    = true
+# grant_sp_cluster_access    = true
+# grant_user_bootstrap_admin = false

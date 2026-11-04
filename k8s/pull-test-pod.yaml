@@ -1,0 +1,16 @@
+# Bonus: a one-off pod that forces a fresh image pull.
+# Use it to show the failure after removing AcrPull and the recovery after restoring it.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pull-test
+  namespace: it3200-lab
+spec:
+  restartPolicy: Never
+  containers:
+    - name: web
+      image: ACR_LOGIN_SERVER/hello-it3200:v1
+      imagePullPolicy: Always
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false

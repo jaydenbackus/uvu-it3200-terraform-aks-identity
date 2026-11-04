@@ -1,0 +1,34 @@
+# Terraform state and plans hold secrets (including the SP client secret)
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Real variable values
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Credentials
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+kubeconfig
+*.kubeconfig
+.kube/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,7 @@
+# Created once by an operator. Namespace-scoped roles cannot create namespaces.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: it3200-lab
+  labels:
+    course: it3200
