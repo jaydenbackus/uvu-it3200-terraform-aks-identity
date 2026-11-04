@@ -1,0 +1,6 @@
+  # azurerm_role_assignment.kubelet_acr_pull[0] will be destroyed
+  # (because index [0] is out of range for count)
+      - role_definition_name                   = "AcrPull" -> null
+Plan: 0 to add, 0 to change, 1 to destroy.
+azurerm_role_assignment.kubelet_acr_pull[0]: Destruction complete after 3s
+Apply complete! Resources: 0 added, 0 changed, 1 destroyed.

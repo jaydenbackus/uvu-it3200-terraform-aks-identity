@@ -40,6 +40,11 @@ resource "azurerm_kubernetes_cluster" "aks" {
     vm_size                     = var.node_vm_size
     node_count                  = var.node_count
     temporary_name_for_rotation = "systemtmp"
+
+    # Match the AKS defaults so plans stay clean.
+    upgrade_settings {
+      max_surge = "10%"
+    }
   }
 
   # Cluster (control plane) identity. AKS also creates a separate

@@ -1,0 +1,4 @@
+$ az role assignment list --assignee <kubelet_identity_client_id> --all -o table
+Role     Scope
+-------  -----------------------------------------------------------------------------------------------------------------------------------------------------------
+AcrPull  /subscriptions/c9b6ce95-f243-4573-83ad-945ebbfc9add/resourceGroups/rg-uvu-it3200-jayden/providers/Microsoft.ContainerRegistry/registries/acruvuit3200jayden

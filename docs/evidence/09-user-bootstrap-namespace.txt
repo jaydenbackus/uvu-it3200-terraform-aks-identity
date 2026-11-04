@@ -1,0 +1,13 @@
+# Personal account: Cluster User + RBAC Reader + TEMPORARY RBAC Cluster Admin (bootstrap)
+Subscription
+--------------
+azure basic
+WARNING: Merged "aks-uvu-it3200-jayden" as current context in <scratch>/kube-user
+WARNING: Converted kubeconfig to use Azure CLI authentication.
+$ kubelogin convert-kubeconfig -l azurecli
+ok
+$ kubectl apply -f k8s/namespace.yaml
+namespace/it3200-lab created
+$ kubectl get namespace it3200-lab
+NAME         STATUS   AGE
+it3200-lab   Active   1s

@@ -1,0 +1,6 @@
+$ az role assignment list --assignee <sp_client_id> --all -o table   (run as personal account)
+Role                                        Scope                                                                                                                                                                                     Created
+------------------------------------------  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------  --------------------------------
+Azure Kubernetes Service Cluster User Role  .../managedClusters/aks-uvu-it3200-jayden                        2026-11-04T04:04:44.569787+00:00
+Azure Kubernetes Service RBAC Writer        .../managedClusters/aks-uvu-it3200-jayden/namespaces/it3200-lab  2026-11-04T04:07:15.786518+00:00
+Azure Kubernetes Service RBAC Reader        .../managedClusters/aks-uvu-it3200-jayden                        2026-11-04T04:07:16.226684+00:00

@@ -22,7 +22,7 @@ variable "location" {
 variable "node_vm_size" {
   description = "VM size for the AKS node pool. Keep it small for the lab."
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_D2s_v6"
 }
 
 variable "node_count" {

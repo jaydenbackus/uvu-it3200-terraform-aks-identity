@@ -1,0 +1,11 @@
+$ az login --service-principal --username "$AZURE_CLIENT_ID" --password "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID"
+ERROR: No subscriptions found for 0c207a5a-6998-4bc6-9d52-337e35498c14.
+
+$ az login --service-principal ... --allow-no-subscriptions
+Name                       UserType          User
+-------------------------  ----------------  ------------------------------------
+N/A(tenant level account)  servicePrincipal  0c207a5a-6998-4bc6-9d52-337e35498c14
+
+$ az aks get-credentials --subscription <sub> --resource-group rg-uvu-it3200-jayden --name aks-uvu-it3200-jayden
+WARNING: Subscription 'c9b6ce95-f243-4573-83ad-945ebbfc9add' not recognized.
+ERROR: Subscription 'c9b6ce95-f243-4573-83ad-945ebbfc9add' not found. Check the spelling and casing and try again.

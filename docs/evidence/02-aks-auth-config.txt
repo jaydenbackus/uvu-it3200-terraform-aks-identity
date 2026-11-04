@@ -1,0 +1,16 @@
+$ az aks show --query "{aad:aadProfile,localAccountsDisabled:disableLocalAccounts,identity:identity.type,kubelet:identityProfile.kubeletidentity.objectId}"
+{
+  "aad": {
+    "adminGroupObjectIDs": null,
+    "clientAppId": null,
+    "enableAzureRbac": true,
+    "managed": true,
+    "serverAppId": null,
+    "serverAppSecret": null,
+    "tenantId": "d5bdbd3f-1f76-429f-80f8-d015b41eb939"
+  },
+  "identity": "SystemAssigned",
+  "k8s": "1.36",
+  "kubeletObjectId": "60051ec7-4121-4a5c-989a-27388d8e5b9d",
+  "localAccountsDisabled": true
+}

@@ -1,0 +1,55 @@
+# Deployed as the service principal
+$ scripts/render-manifests.sh deployment.yaml service.yaml | kubectl apply -f -
+deployment.apps/hello-it3200 created
+service/hello-it3200 created
+$ kubectl rollout status deployment/hello-it3200 -n it3200-lab
+Waiting for deployment "hello-it3200" rollout to finish: 0 of 2 updated replicas are available...
+Waiting for deployment "hello-it3200" rollout to finish: 1 of 2 updated replicas are available...
+deployment "hello-it3200" successfully rolled out
+
+$ kubectl get deployments,pods,services -n it3200-lab -o wide
+NAME                           READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                                          SELECTOR
+deployment.apps/hello-it3200   2/2     2            2           5s    web          acruvuit3200jayden.azurecr.io/hello-it3200:v1   app=hello-it3200
+
+NAME                               READY   STATUS    RESTARTS   AGE   IP            NODE                             NOMINATED NODE   READINESS GATES
+pod/hello-it3200-df8b5fb89-4bzjr   1/1     Running   0          5s    10.224.0.16   aks-system-24054365-vmss000000   <none>           <none>
+pod/hello-it3200-df8b5fb89-fdk9b   1/1     Running   0          5s    10.224.0.26   aks-system-24054365-vmss000000   <none>           <none>
+
+NAME                   TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+service/hello-it3200   ClusterIP   10.0.28.187   <none>        80/TCP    4s    app=hello-it3200
+
+$ kubectl describe pod hello-it3200-df8b5fb89-4bzjr -n it3200-lab (image + events)
+Containers:
+  web:
+    Container ID:   containerd://c58094286ff734a99662e58020cc251977e52a993261c4fc74fafa42e7d5ef20
+    Image:          acruvuit3200jayden.azurecr.io/hello-it3200:v1
+    Image ID:       acruvuit3200jayden.azurecr.io/hello-it3200@sha256:881ff6a4e5d9e41b7721fe70cced52a729554e61d259ae4607d00eb716636a38
+    State:          Running
+      Started:      Tue, 03 Nov 2026 21:10:42 -0700
+    Ready:          True
+Events:
+  Type     Reason     Age              From               Message
+  ----     ------     ----             ----               -------
+  Normal   Scheduled  5s               default-scheduler  Successfully assigned it3200-lab/hello-it3200-df8b5fb89-4bzjr to aks-system-24054365-vmss000000
+  Normal   Pulling    4s               kubelet            spec.containers{web}: Pulling image "acruvuit3200jayden.azurecr.io/hello-it3200:v1"
+  Normal   Pulled     3s               kubelet            spec.containers{web}: Successfully pulled image "acruvuit3200jayden.azurecr.io/hello-it3200:v1" in 1.563s (1.563s including waiting). Image size: 20981583 bytes.
+  Normal   Created    3s               kubelet            spec.containers{web}: Container created
+  Normal   Started    3s               kubelet            spec.containers{web}: Container started
+  Warning  Unhealthy  3s (x2 over 3s)  kubelet            spec.containers{web}: Readiness probe failed: Get "http://10.224.0.16:8080/": dial tcp 10.224.0.16:8080: connect: connection refused
+
+$ kubectl get events -n it3200-lab --sort-by=.lastTimestamp
+6s          Normal    Scheduled           pod/hello-it3200-df8b5fb89-4bzjr    Successfully assigned it3200-lab/hello-it3200-df8b5fb89-4bzjr to aks-system-24054365-vmss000000
+6s          Normal    Scheduled           pod/hello-it3200-df8b5fb89-fdk9b    Successfully assigned it3200-lab/hello-it3200-df8b5fb89-fdk9b to aks-system-24054365-vmss000000
+7s          Normal    ScalingReplicaSet   deployment/hello-it3200             Scaled up replica set hello-it3200-df8b5fb89 from 0 to 2
+7s          Normal    SuccessfulCreate    replicaset/hello-it3200-df8b5fb89   Created pod: hello-it3200-df8b5fb89-fdk9b
+6s          Normal    SuccessfulCreate    replicaset/hello-it3200-df8b5fb89   Created pod: hello-it3200-df8b5fb89-4bzjr
+5s          Normal    Pulling             pod/hello-it3200-df8b5fb89-fdk9b    Pulling image "acruvuit3200jayden.azurecr.io/hello-it3200:v1"
+5s          Normal    Pulling             pod/hello-it3200-df8b5fb89-4bzjr    Pulling image "acruvuit3200jayden.azurecr.io/hello-it3200:v1"
+4s          Normal    Created             pod/hello-it3200-df8b5fb89-4bzjr    Container created
+4s          Normal    Pulled              pod/hello-it3200-df8b5fb89-fdk9b    Successfully pulled image "acruvuit3200jayden.azurecr.io/hello-it3200:v1" in 1.562s (1.562s including waiting). Image size: 20981583 bytes.
+4s          Normal    Created             pod/hello-it3200-df8b5fb89-fdk9b    Container created
+4s          Normal    Started             pod/hello-it3200-df8b5fb89-fdk9b    Container started
+4s          Warning   Unhealthy           pod/hello-it3200-df8b5fb89-fdk9b    Readiness probe failed: Get "http://10.224.0.26:8080/": dial tcp 10.224.0.26:8080: connect: connection refused
+4s          Warning   Unhealthy           pod/hello-it3200-df8b5fb89-4bzjr    Readiness probe failed: Get "http://10.224.0.16:8080/": dial tcp 10.224.0.16:8080: connect: connection refused
+4s          Normal    Started             pod/hello-it3200-df8b5fb89-4bzjr    Container started
+4s          Normal    Pulled              pod/hello-it3200-df8b5fb89-4bzjr    Successfully pulled image "acruvuit3200jayden.azurecr.io/hello-it3200:v1" in 1.563s (1.563s including waiting). Image size: 20981583 bytes.

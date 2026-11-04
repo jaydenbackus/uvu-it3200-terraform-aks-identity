@@ -1,0 +1,4 @@
+azurerm_role_assignment.user_bootstrap_admin[0]: Destruction complete after 3s
+azurerm_role_assignment.sp_rbac_writer_ns[0]: Creation complete after 28s
+azurerm_role_assignment.sp_rbac_reader[0]: Creation complete after 28s
+Apply complete! Resources: 2 added, 0 changed, 1 destroyed.

@@ -4,13 +4,13 @@
 **Author:** Jayden Backus
 **Repository:** https://github.com/jaydenbackus/uvu-it3200-terraform-aks-identity
 
-> Lines marked **TODO** need results or screenshots from your own run. Put screenshots in `docs/screenshots/` and blur IDs you don't want public. Never show a secret.
+> Command output from the live run on 2026-11-04 is saved in [`docs/evidence/`](evidence/). Portal screenshots go in `docs/screenshots/`. No secret appears in either.
 
 ## 1. Executive summary
 
 I built an AKS cluster and a private container registry with Terraform, then gave each identity only the access its job needs. A service principal deploys the app into one namespace and nothing else. The nodes pull images with their own managed identity, which may pull but never push. No one holds a static admin password: the cluster's local accounts and the registry's admin user are both off, so every request goes through Microsoft Entra ID and Azure RBAC.
 
-**TODO:** One sentence on the result (e.g. "The app ran from ACR on the first deploy; the main problem I hit was …").
+The app ran from ACR on the first deploy. The problems I hit were about identity, not infrastructure: a service principal with no role cannot even see the subscription, kubelogin 0.2.22 needs IDs as flags, and new Azure RBAC roles took about three minutes to reach the cluster.
 
 ## 2. Architecture overview
 
@@ -34,10 +34,13 @@ Three boolean variables let me reproduce failures without editing code: `grant_s
 
 **"Private" registry.** The registry rejects anonymous pulls and has no admin password, so only Entra identities with an RBAC role can read it. It still has a public endpoint; a private endpoint would need the Premium SKU and a VNet, which costs more than this lab warrants.
 
-**Evidence — TODO:**
-- `screenshots/01-terraform-apply.png` — `terraform apply` summary
-- `screenshots/02-aks-portal.png` — cluster overview, showing *Microsoft Entra ID authentication with Azure RBAC*
-- `screenshots/03-acr-portal.png` — registry overview
+The first `terraform apply` created 10 resources in about 6 minutes ([01](evidence/01-terraform-apply.txt)). AKS reports `enableAzureRbac: true`, `managed: true`, and `localAccountsDisabled: true` ([02](evidence/02-aks-auth-config.txt)). ACR reports `adminUserEnabled: false` and `anonymousPull: false` ([04](evidence/04-acr-config.txt)).
+
+Two settings changed from my first draft:
+- `Standard_B2s` is not offered in westus3 and my B-series v2 quota was 0, so the node size is `Standard_D2s_v6`.
+- AKS fills in default `upgrade_settings` on the node pool. Terraform saw that as drift and planned an in-place update on every apply, so I declared `max_surge = "10%"` to match.
+
+**Screenshots:** `screenshots/01-terraform-apply.png`, `02-aks-portal.png`, `03-acr-portal.png`.
 
 ## 4. Identity and access management
 
@@ -45,17 +48,18 @@ See [identities-and-permissions.md](identities-and-permissions.md) for the full 
 
 | Value | Where to find it |
 |---|---|
-| Tenant ID | `terraform output tenant_id` |
-| Application (client) ID | `terraform output sp_client_id` |
-| Service principal object ID | `terraform output sp_object_id` |
+| Tenant ID | `d5bdbd3f-1f76-429f-80f8-d015b41eb939` (`terraform output tenant_id`) |
+| Application (client) ID | `0c207a5a-6998-4bc6-9d52-337e35498c14` (`terraform output sp_client_id`) |
+| Service principal object ID | `098de086-3b5b-458b-8235-92bac20927b2` (`terraform output sp_object_id`) |
+| Kubelet identity object ID | `60051ec7-4121-4a5c-989a-27388d8e5b9d` |
+
+These IDs are identifiers, not credentials. Kubernetes error messages name the caller by object ID, which is how I matched each Forbidden error to an identity.
 
 The service principal signs in with a client secret that expires after 30 days. Terraform generates it, so it sits in Terraform state; state and `tfvars` are git-ignored. In production I would replace the secret with workload identity federation (OIDC from GitHub Actions), which has no secret to leak.
 
 **Why different identities?** Each identity does one job. A leaked deploy secret should not let an attacker pull every image or resize the cluster, and a compromised node should not be able to deploy workloads. Giving all of them the same rights would make the weakest credential as powerful as the strongest.
 
-**Evidence — TODO:**
-- `screenshots/04-sp-overview.png` — Enterprise application page (no secrets visible)
-- `screenshots/05-sp-role-assignments.png` — `az role assignment list --assignee <sp_client_id> --all -o table`
+**Evidence:** [12-sp-role-assignments.txt](evidence/12-sp-role-assignments.txt) lists the service principal's three roles and scopes. **Screenshot:** `screenshots/04-sp-overview.png` (Enterprise application page, no secrets).
 
 ## 5. AKS and ACR integration
 
@@ -81,57 +85,82 @@ az role assignment list --assignee "$(terraform -chdir=terraform output -raw kub
 - *Auth failure vs. bad image name:* an auth failure says `unauthorized` / `401`. A wrong name or tag says `not found` / `manifest unknown`. A wrong registry hostname says `no such host`. `az acr repository show-tags` confirms whether the tag exists.
 - *Why Terraform:* the assignment is reviewed in a pull request, recreated whenever the cluster is rebuilt (the kubelet identity changes), and removed on destroy. A manual assignment is forgotten, drifts, and outlives the cluster.
 
-**Evidence — TODO:** `screenshots/06-kubelet-acrpull.png`
+**Evidence:** [03-kubelet-acrpull.txt](evidence/03-kubelet-acrpull.txt) shows one assignment for the kubelet identity: `AcrPull` on `acruvuit3200jayden`.
 
 ## 6. Service principal authentication testing
 
-Run `scripts/sp-login.sh` then `scripts/test-access.sh service-principal`.
+I tested the service principal in three stages, each set by Terraform.
 
-**First attempt (`grant_sp_cluster_access = false`) — TODO: paste exact errors**
+**Stage 1: no roles at all** ([06](evidence/06-sp-no-roles.txt))
 
 ```
-az login --service-principal ...        → TODO (expected: success)
-az aks get-credentials ...              → TODO (expected: AuthorizationFailed ... listClusterUserCredential/action)
+$ az login --service-principal --username "$AZURE_CLIENT_ID" --password "$AZURE_CLIENT_SECRET" --tenant "$AZURE_TENANT_ID"
+ERROR: No subscriptions found for 0c207a5a-6998-4bc6-9d52-337e35498c14.
+
+$ az login --service-principal ... --allow-no-subscriptions
+Name                       UserType
+N/A(tenant level account)  servicePrincipal
+
+$ az aks get-credentials --subscription <sub> -g rg-uvu-it3200-jayden -n aks-uvu-it3200-jayden
+ERROR: Subscription 'c9b6ce95-…' not found.
 ```
 
-**Diagnosis.** If `az login` succeeds and `az account show` shows `type: servicePrincipal`, the identity is valid. A later `AuthorizationFailed` or `Forbidden` means it lacks a role, not that it is broken. Azure answers "who are you?" (authentication) separately from "what may you do?" (authorization).
+The first error looks like a bad login, but it isn't. Entra ID accepted the secret; the CLI then listed the subscriptions this principal can see and found none, because it had no Azure role anywhere. `--allow-no-subscriptions` proves the sign-in works.
 
-**After roles applied — TODO: fill in**
+**Stage 2: Cluster User Role only** ([08](evidence/08-sp-cluster-user-only.txt))
 
-| Command | Result | Notes |
-|---|---|---|
-| `kubectl cluster-info` | TODO | |
-| `kubectl get nodes` | TODO | Nodes are cluster-scoped; Reader/Writer may not cover them |
-| `kubectl get namespaces` | TODO | |
-| `kubectl get pods -A` | TODO | |
-| `kubectl auth can-i create deployments -n it3200-lab` | TODO | expected `yes` |
-| `kubectl auth can-i create deployments -n default` | TODO | expected `no` |
-| `kubectl auth can-i delete namespaces` | TODO | expected `no` |
+`az aks get-credentials` now succeeds, but every kubectl call fails:
 
-**Evidence — TODO:** `screenshots/07-sp-forbidden.png`, `screenshots/08-sp-success.png`
+```
+Error from server (Forbidden): pods is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2"
+cannot list resource "pods" in API group "" in the namespace "it3200-lab":
+User does not have access to the resource in Azure. Update role assignment to allow access.
+```
+
+**Diagnosis.** The service principal is valid: the API server knows its object ID, which it could only learn from a valid Entra token. Forbidden means it has no Kubernetes authorization. Cluster User Role lets it download the kubeconfig and nothing more.
+
+**Stage 3: final roles** ([11](evidence/11-sp-final-roles.txt))
+
+| Command | Result |
+|---|---|
+| `kubectl cluster-info` | OK |
+| `kubectl get nodes` | **Forbidden**: nodes are cluster-scoped, and RBAC Reader/Writer do not cover them |
+| `kubectl get namespaces` | OK |
+| `kubectl get pods -A` | OK (Reader at cluster scope) |
+| `kubectl get pods -n it3200-lab` | OK |
+| `can-i create deployments -n it3200-lab` | yes |
+| `can-i create deployments -n default` | no |
+| `can-i create rolebindings -n it3200-lab` | no |
+| `can-i delete namespaces` | no |
+| `can-i get secrets -n it3200-lab` | **yes**: RBAC Writer includes Secrets in its namespace |
+
+The new roles took about three minutes to reach the cluster. Until then the same Forbidden errors continued, and `can-i` gave mixed answers while the change spread. I confirmed the assignments existed in Azure ([12](evidence/12-sp-role-assignments.txt)) and waited instead of adding more roles.
+
+**kubelogin finding.** The lab's `kubelogin convert-kubeconfig -l spn` failed in kubelogin 0.2.22 with `--client-id is required`, then `--tenant-id is required`, even with `AZURE_CLIENT_ID` and `AZURE_TENANT_ID` set. Passing both as flags fixed it. The secret still comes only from `AZURE_CLIENT_SECRET` at token time; the kubeconfig contains the client and tenant IDs but zero copies of the secret ([11](evidence/11-sp-final-roles.txt)).
 
 ## 7. Personal account troubleshooting comparison
 
 Workflow followed:
 
-1. Recorded the service principal's exact error (Section 6).
-2. Confirmed it authenticated: `az account show`.
-3. Listed its roles: `az role assignment list --assignee <sp_client_id> --all -o table`.
-4. Checked the cluster's auth mode: `az aks show -g $RG -n $AKS --query "{aad:aadProfile, localDisabled:disableLocalAccounts}"`.
-5. Signed in as myself (`scripts/user-login.sh`) and ran the same tests.
-6. Compared, fixed the service principal's roles in Terraform, and retested.
+1. Recorded the service principal's exact errors (Section 6).
+2. Confirmed it authenticated: the CLI showed `userType: servicePrincipal`, and the Forbidden message named its object ID.
+3. Listed its roles as my own account: `az role assignment list --assignee <sp_client_id> --all`.
+4. Checked the cluster's mode: `az aks show` → `enableAzureRbac: true`, `disableLocalAccounts: true`. So Azure roles, not Kubernetes RoleBindings, decide access.
+5. Signed in as myself and ran the same tests ([13](evidence/13-user-comparison.txt)).
+6. Compared the two, then gave the service principal its final roles through Terraform and retested.
 
-| Test | Service principal | Personal account |
+| Test | Service principal (final) | Personal account |
 |---|---|---|
-| Azure authentication | TODO | TODO |
-| Retrieve AKS credentials | TODO | TODO |
-| List Kubernetes namespaces | TODO | TODO |
-| Read Pods in lab namespace | TODO | TODO |
-| Deploy application | TODO | TODO (expected: Forbidden; Reader only) |
+| Azure authentication | OK (client secret) | OK (browser + MFA; first login failed until I named the tenant) |
+| Retrieve AKS credentials | OK (Cluster User Role) | OK (Cluster User Role) |
+| List Kubernetes namespaces | OK | OK |
+| Read Pods in lab namespace | OK | OK |
+| Deploy application | **OK**: RBAC Writer on `it3200-lab` | **Forbidden**: RBAC Reader only |
+| List nodes | Forbidden | Forbidden |
 
-**Difference:** TODO — name the role one identity had and the other lacked.
+**Difference.** The service principal holds *RBAC Writer* on the namespace; my account holds only *RBAC Reader*. My account is **Owner of the subscription**, yet it cannot create a Deployment. Owner grants Azure management actions (`actions`), while Kubernetes requests are checked against data actions (`dataActions`), which only the AKS RBAC roles grant. Subscription Owner is not the same as cluster admin when Azure RBAC for Kubernetes is on.
 
-**Temporary permissions.** My account held *RBAC Cluster Admin* only long enough to create the namespace (`grant_user_bootstrap_admin = true`), then I removed it. **TODO:** screenshot of the role list before and after.
+**Temporary permissions.** Namespace-scoped roles cannot create the namespace they apply to. My account held *RBAC Cluster Admin* from 04:04 to 04:07 UTC, long enough to run `kubectl apply -f k8s/namespace.yaml` ([09](evidence/09-user-bootstrap-namespace.txt)). The next apply destroyed it ([10](evidence/10-apply-final-roles.txt)).
 
 ## 8. Kubernetes application deployment
 
@@ -144,7 +173,20 @@ kubectl get events -n it3200-lab
 kubectl port-forward -n it3200-lab svc/hello-it3200 8080:80
 ```
 
-The `Successfully pulled image "acruvuit3200….azurecr.io/hello-it3200:v1"` event proves the node pulled from my private registry.
+I built the image in ACR with `az acr build` (ACR Tasks worked on this subscription), giving `hello-it3200:v1` with digest `sha256:881ff6a4…` ([05](evidence/05-acr-image.txt)). The service principal then applied the manifests ([14](evidence/14-deploy-as-sp.txt)):
+
+```
+deployment.apps/hello-it3200   2/2   2   2   acruvuit3200jayden.azurecr.io/hello-it3200:v1
+pod/hello-it3200-df8b5fb89-4bzjr   1/1   Running   0
+pod/hello-it3200-df8b5fb89-fdk9b   1/1   Running   0
+service/hello-it3200   ClusterIP   10.0.28.187   80/TCP
+
+Normal  Pulled  kubelet  Successfully pulled image "acruvuit3200jayden.azurecr.io/hello-it3200:v1" in 1.563s
+```
+
+The `Pulled` event and the pod's `Image ID` (same digest as in ACR) prove the node pulled from my private registry. A brief `Readiness probe failed ... connection refused` warning appeared because the first probe ran before nginx was listening; the pods went Ready a second later.
+
+`kubectl port-forward` returned `HTTP/1.1 200 OK` and the page's "Hello from AKS" heading ([15](evidence/15-app-access.txt)).
 
 **Pod states**
 
@@ -155,7 +197,16 @@ The `Successfully pulled image "acruvuit3200….azurecr.io/hello-it3200:v1"` eve
 | `ImagePullBackOff` | Kubernetes is waiting longer between pull retries after repeated failures. |
 | `CrashLoopBackOff` | The image pulled and the container started, but it keeps exiting. Check `kubectl logs --previous`. |
 
-**Evidence — TODO:** `screenshots/09-acr-image.png`, `screenshots/10-pods-running.png`, `screenshots/11-pulled-event.png`, `screenshots/12-app-browser.png`
+**Screenshots:** `screenshots/09-acr-image.png` (repository in the portal), `screenshots/12-app-browser.png` (page at `http://localhost:8080`).
+
+**Limits I tested** ([16](evidence/16-sp-denied-actions.txt)). As the service principal, each of these was denied:
+
+| Request | Result |
+|---|---|
+| Create a Deployment in `default` | Forbidden |
+| Delete namespace `it3200-lab` | Forbidden |
+| Bind itself to the `admin` ClusterRole in its namespace | Forbidden (no privilege escalation) |
+| List nodes | Forbidden |
 
 ## 9. Permission and security analysis
 
@@ -173,11 +224,19 @@ The `Successfully pulled image "acruvuit3200….azurecr.io/hello-it3200:v1"` eve
 
 ## 10. Troubleshooting findings
 
-### Problems I hit — TODO
+### Problems I hit
 
 | Symptom | Evidence | Root cause | Fix |
 |---|---|---|---|
-| TODO | | | |
+| `az login` failed: `AADSTS50076 ... must use multi-factor authentication` | CLI warning named the tenant | Plain `az login` skipped the tenant that enforces MFA | `az login --tenant <id>` |
+| `No subscriptions found for jcjbackus@gmail.com` | `az account list --all` showed only a tenant-level account | The account had no subscription yet | Created the subscription, then logged in again so the CLI refreshed its list |
+| Every provider `NotRegistered` | `az provider show` | New subscription | `az provider register` for ContainerService, ContainerRegistry, Compute, Network, and others |
+| `Standard_B2s` unavailable | `az vm list-skus`, `az vm list-usage` | SKU not offered in westus3; Bsv2 quota 0 | Switched to `Standard_D2s_v6` (Dsv6 quota 10) |
+| Terraform planned an AKS update on every apply | Plan showed `upgrade_settings` → null | AKS sets defaults Terraform didn't declare | Declared `max_surge = "10%"` |
+| SP `az login`: `No subscriptions found` | Same secret worked with `--allow-no-subscriptions` | Valid identity, zero Azure roles | Expected at this stage; scripts now pass the flag |
+| `kubelogin ... -l spn`: `--client-id is required` | kubelogin 0.2.22 help | This version reads the IDs from flags during convert | Pass `--client-id` and `--tenant-id` |
+| Kubectl as SP hit `localhost:8080` | `KUBECONFIG` empty in the next command | I piped a `source`d script, so its exports ran in a subshell | Source it on its own line |
+| Forbidden after roles applied | Roles listed in Azure; `can-i` answers mixed | Propagation delay (~3 min) | Waited and retested; changed nothing |
 
 ### Scenario A — Authentication succeeds, kubectl returns Forbidden
 
@@ -219,12 +278,15 @@ The `Successfully pulled image "acruvuit3200….azurecr.io/hello-it3200:v1"` eve
 
 ## 11. Bonus: break and fix
 
-**TODO:** follow the README's bonus steps and record each.
+The break did not show up, and that turned out to be the lesson.
 
-1. `terraform apply -var enable_kubelet_acr_pull=false` — plan shows 1 to destroy. **TODO screenshot**
-2. Pull-test pod events: **TODO** paste the `401 Unauthorized` / `ImagePullBackOff` lines.
-3. `terraform apply` — plan shows 1 to add.
-4. Pull-test pod pulls successfully. **TODO screenshot**
+1. **Remove.** `terraform plan -var enable_kubelet_acr_pull=false` showed exactly one change, the AcrPull assignment to destroy. I applied that saved plan at 04:12 UTC ([17](evidence/17-bonus-plan-remove-acrpull.txt)).
+2. **Test.** I recreated the `pull-test` pod (with `imagePullPolicy: Always`) every minute for 15 minutes. Every attempt reached `Running`, and the events show a fresh `Pulled` from ACR each time, while `az role assignment list` showed the kubelet identity holding no role at all ([18](evidence/18-bonus-pull-after-removal.txt)).
+3. **Restore.** `terraform plan` showed one assignment to add; I applied it, and a new pull-test pod went `Running` in 1 second ([19](evidence/19-bonus-restore-acrpull.txt)).
+
+**Why pulls kept working.** Removing a role does not take back credentials already issued. The node's credential provider swaps the kubelet identity's Entra token for an ACR token and caches it. ACR checks RBAC when it issues a token, not on every pull, so the cached token works until it expires (ACR refresh tokens last up to about three hours). A new node, with an empty cache, would have failed with `401 Unauthorized` → `ErrImagePull` → `ImagePullBackOff`. I did not add a second node to prove it, to keep the lab cheap.
+
+**What this means in practice.** Revoking access is not instant. If you remove a compromised identity's role, existing tokens can keep working for hours, so incident response must also rotate credentials or replace nodes. It also means a broken role assignment can hide on old nodes and only surface when the cluster scales or upgrades, which argues for testing pulls on a fresh node in CI.
 
 **Catching this before production:** `terraform validate` and `tflint` catch syntax; Checkov or Conftest on `terraform show -json tfplan` can require that every AKS cluster has an AcrPull assignment for its kubelet identity and forbid broad roles; and an ephemeral test environment can run `az aks check-acr` plus a real deploy and `rollout status` on each pull request.
 
@@ -234,7 +296,10 @@ The `Successfully pulled image "acruvuit3200….azurecr.io/hello-it3200:v1"` eve
 - The deployer and the nodes are different identities. Granting ACR access to the wrong one changes nothing.
 - `az aks get-credentials` succeeding proves only that you can download a kubeconfig.
 - Role assignments take minutes to propagate; retest before changing more.
-- **TODO:** one or two lessons from your own run.
+- A login error is not always an authentication error. "No subscriptions found" meant zero roles, not a bad secret.
+- Subscription Owner does not make you a cluster admin when Azure RBAC for Kubernetes is on. Owner covers management actions; Kubernetes checks data actions.
+- Revoking a role does not revoke tokens already issued. Image pulls kept working for 15 minutes after AcrPull was gone.
+- The lab's tools changed under it: kubelogin 0.2.22 needed flags the docs describe as optional, and the default VM size wasn't offered in my region. Reading the real error beats following a guide line by line.
 
 **At scale (100 clusters, 500 apps).** I would define clusters, registries, and identities as Terraform modules so every cluster gets the same roles by default. Each app would get its own deploy identity using workload identity federation from CI (no secrets), scoped to its namespace and environment. Access would be granted to Entra groups and reviewed regularly; prod elevation would go through PIM. A few shared registries per environment would serve many clusters, with images promoted from test to prod. GitOps (Flux or Argo CD) would apply manifests so humans rarely need write access, and policy checks in CI would block overbroad roles before they reach Azure.
 
@@ -243,6 +308,8 @@ The `Successfully pulled image "acruvuit3200….azurecr.io/hello-it3200:v1"` eve
 | What I asked | What it produced | How I checked it |
 |---|---|---|
 | Claude Code: scaffold the repo from the assignment text | Terraform, manifests, scripts, README, report outline | `terraform validate`; compared role names and AKS settings with Microsoft Learn and the Terraform registry docs; ran every command myself |
-| **TODO** | | |
+| Claude Code: deploy and test end to end | Ran Terraform plans, the SP and personal-account tests, the deploy, and the bonus; saved output to `docs/evidence/` | Every `terraform apply` ran from a saved plan I reviewed; each role grant needed my approval. I checked each claimed result against the saved output |
+| Claude Code: why does `az login` as the SP say "No subscriptions found"? | Explained it as a valid sign-in with zero roles; suggested `--allow-no-subscriptions` | The flag let the same secret sign in, and the CLI then showed `userType: servicePrincipal` |
+| Claude Code: why does the image still pull after removing AcrPull? | Suggested cached ACR tokens rather than a Terraform failure | Confirmed with `az role assignment list` that the role was gone while pulls continued, and that restoring it changed nothing visible |
 
 I am responsible for the configuration and confirmed each role's permissions against Microsoft's built-in role reference before applying it.

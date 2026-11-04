@@ -1,0 +1,45 @@
+Name                                  Subscription
+------------------------------------  --------------
+0c207a5a-6998-4bc6-9d52-337e35498c14  azure basic
+WARNING: Merged "aks-uvu-it3200-jayden" as current context in ~/.kube/it3200-sp
+WARNING: Converted kubeconfig to use Azure CLI authentication.
+kubectl now uses the service principal (KUBECONFIG=~/.kube/it3200-sp).
+$ kubectl config view --minify -o jsonpath={.users[0].user.exec.args}
+["get-token","--login","spn","--server-id","6dae42f8-4368-4678-94ff-3960e28e3630","--client-id","0c207a5a-6998-4bc6-9d52-337e35498c14","--tenant-id","d5bdbd3f-1f76-429f-80f8-d015b41eb939"]
+
+client secret occurrences in kubeconfig: 0
+== Access test: service principal, final roles ==
+FAIL  cluster-info                       kubectl cluster-info
+      Error from server (Forbidden): services is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot list resource "services" in API group "" in the namespace "kube-system": User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  list nodes                         kubectl get nodes
+      Error from server (Forbidden): nodes is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot list resource "nodes" in API group "" at the cluster scope: User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  list namespaces                    kubectl get namespaces
+      Error from server (Forbidden): namespaces is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot list resource "namespaces" in API group "" at the cluster scope: User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  list pods (all namespaces)         kubectl get pods -A
+      Error from server (Forbidden): pods is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot list resource "pods" in API group "" at the cluster scope: User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  list pods (it3200-lab)             kubectl get pods -n it3200-lab
+      Error from server (Forbidden): pods is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot list resource "pods" in API group "" in the namespace "it3200-lab": User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  can create deployments             kubectl auth can-i create deployments -n it3200-lab
+      no - User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  can create services                kubectl auth can-i create services -n it3200-lab
+      no - User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  can delete namespaces              kubectl auth can-i delete namespaces
+      no - User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  can create in default ns           kubectl auth can-i create deployments -n default
+      no - User does not have access to the resource in Azure. Update role assignment to allow access.
+
+# Retest after role propagation (04:10 UTC)
+== Access test: service principal, final roles (after propagation) ==
+OK      cluster-info                   kubectl cluster-info
+DENIED  list nodes                     kubectl get nodes
+        Error from server (Forbidden): nodes is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot list resource "nodes" in API group "" at the cluster scope: User does not have access to the resource in Azure. Update
+OK      list namespaces                kubectl get namespaces
+OK      list pods (all namespaces)     kubectl get pods -A
+OK      list pods (it3200-lab)         kubectl get pods -n it3200-lab
+-- permission checks (yes/no) --
+yes     create deployments in it3200-lab kubectl auth can-i create deployments -n it3200-lab
+yes     create services in it3200-lab  kubectl auth can-i create services -n it3200-lab
+no      create deployments default     kubectl auth can-i create deployments -n default
+yes     read secrets in it3200-lab     kubectl auth can-i get secrets -n it3200-lab
+no      create rolebindings in it3200-lab kubectl auth can-i create rolebindings -n it3200-lab
+no      delete namespaces              kubectl auth can-i delete namespaces

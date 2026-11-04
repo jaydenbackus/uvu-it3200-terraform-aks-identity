@@ -1,0 +1,31 @@
+# Service principal holds ONLY "Azure Kubernetes Service Cluster User Role"
+$ az login --service-principal ... --allow-no-subscriptions
+Name         UserType
+-----------  ----------------
+azure basic  servicePrincipal
+
+$ az aks get-credentials --resource-group rg-uvu-it3200-jayden --name aks-uvu-it3200-jayden
+WARNING: Merged "aks-uvu-it3200-jayden" as current context in <scratch>/kube-sp
+WARNING: Converted kubeconfig to use Azure CLI authentication.
+$ kubelogin convert-kubeconfig -l spn
+Error: --client-id is required
+
+== Access test: service principal, Cluster User Role only ==
+FAIL  cluster-info                       kubectl cluster-info
+      Error from server (Forbidden): services is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot list resource "services" in API group "" in the namespace "kube-system": User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  list nodes                         kubectl get nodes
+      Error from server (Forbidden): nodes is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot list resource "nodes" in API group "" at the cluster scope: User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  list namespaces                    kubectl get namespaces
+      Error from server (Forbidden): namespaces is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot list resource "namespaces" in API group "" at the cluster scope: User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  list pods (all namespaces)         kubectl get pods -A
+      Error from server (Forbidden): pods is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot list resource "pods" in API group "" at the cluster scope: User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  list pods (it3200-lab)             kubectl get pods -n it3200-lab
+      Error from server (Forbidden): pods is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot list resource "pods" in API group "" in the namespace "it3200-lab": User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  can create deployments             kubectl auth can-i create deployments -n it3200-lab
+      no - User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  can create services                kubectl auth can-i create services -n it3200-lab
+      no - User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  can delete namespaces              kubectl auth can-i delete namespaces
+      no - User does not have access to the resource in Azure. Update role assignment to allow access.
+FAIL  can create in default ns           kubectl auth can-i create deployments -n default
+      no - User does not have access to the resource in Azure. Update role assignment to allow access.

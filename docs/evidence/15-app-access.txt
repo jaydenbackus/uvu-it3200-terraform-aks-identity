@@ -1,0 +1,11 @@
+$ kubectl port-forward -n it3200-lab svc/hello-it3200 8080:80   (local port 18080 used here)
+Forwarding from 127.0.0.1:18080 -> 8080
+Forwarding from [::1]:18080 -> 8080
+Handling connection for 18080
+$ curl -i http://localhost:18080/
+HTTP/1.1 200 OK
+Server: nginx/1.27.5
+Date: Wed, 04 Nov 2026 04:10:57 GMT
+  <h1>Hello from AKS</h1>
+  <p>This page was served from a container image pulled from a private Azure Container Registry
+     by the AKS kubelet managed identity.</p>

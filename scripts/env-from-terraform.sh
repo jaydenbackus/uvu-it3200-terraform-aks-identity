@@ -9,6 +9,7 @@ export AKS="$(tfo aks_cluster_name)"
 export ACR="$(tfo acr_name)"
 export ACR_LOGIN_SERVER="$(tfo acr_login_server)"
 export NS="$(tfo app_namespace)"
+export SUB_ID="$(az account show --query id -o tsv 2>/dev/null)"
 
 # Names kubelogin's spn mode reads
 export AZURE_TENANT_ID="$(tfo tenant_id)"

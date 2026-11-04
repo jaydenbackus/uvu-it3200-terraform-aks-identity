@@ -1,0 +1,4 @@
+  # azurerm_kubernetes_cluster.aks will be updated in-place
+  # azurerm_role_assignment.sp_cluster_user[0] will be created
+  # azurerm_role_assignment.user_bootstrap_admin[0] will be created
+Apply complete! Resources: 2 added, 1 changed, 0 destroyed.

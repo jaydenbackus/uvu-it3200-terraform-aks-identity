@@ -28,7 +28,9 @@ docs/        Architecture, identities, report, screenshots
 
 - Azure subscription where you can create AKS, ACR, app registrations, and role assignments (Owner, or Contributor plus User Access Administrator).
 - Terraform 1.6+, Azure CLI, kubectl, kubelogin, Docker (only if ACR Tasks is blocked).
-- Install kubelogin with `brew install Azure/kubelogin/kubelogin` or `az aks install-cli`.
+- Install kubelogin with `brew install Azure/kubelogin/kubelogin` or `az aks install-cli`. Tested with kubelogin 0.2.22, Terraform 1.16, Azure CLI 2.89.
+
+**Switching identities.** `sp-login.sh` uses its own Azure CLI profile (`~/.azure-it3200-sp`) and kubeconfig (`~/.kube/it3200-sp`), so signing in as the service principal does not sign you out. `user-login.sh` switches back. Source each script on its own line, not in a pipe, or its exports are lost.
 
 ## Deploy
 
@@ -47,7 +49,9 @@ cd ..
 source scripts/env-from-terraform.sh       # exports RG, AKS, ACR, NS, AZURE_* vars
 ```
 
-AKS takes 5–10 minutes. Role assignments can take a few more minutes to take effect.
+AKS takes 5–10 minutes. New Azure RBAC roles for Kubernetes took about 3 minutes to reach the cluster in testing; if kubectl stays Forbidden right after an apply, confirm the role exists with `az role assignment list` and wait before changing anything.
+
+**New subscription?** Register the providers first: `for p in Microsoft.ContainerService Microsoft.ContainerRegistry Microsoft.Compute Microsoft.Network Microsoft.ManagedIdentity; do az provider register -n $p --wait; done`. Check that your region offers the node size and that you have quota: `az vm list-usage -l westus3 -o table`.
 
 ### 2. Create the namespace (one-time operator step)
 
@@ -55,7 +59,7 @@ Namespace-scoped roles cannot create the namespace they apply to, so your person
 
 ```bash
 terraform -chdir=terraform apply -var grant_user_bootstrap_admin=true
-scripts/user-login.sh
+source scripts/user-login.sh
 kubectl apply -f k8s/namespace.yaml
 terraform -chdir=terraform apply -var grant_user_bootstrap_admin=false   # remove it
 ```
@@ -71,7 +75,7 @@ The script uses `az acr build` and falls back to a local `docker build` and `doc
 ### 4. Test as the service principal
 
 ```bash
-scripts/sp-login.sh
+source scripts/sp-login.sh
 scripts/test-access.sh service-principal
 ```
 
@@ -90,7 +94,7 @@ kubectl port-forward -n "$NS" svc/hello-it3200 8080:80   # open http://localhost
 ### 6. Compare with your personal account
 
 ```bash
-scripts/user-login.sh
+source scripts/user-login.sh
 scripts/test-access.sh personal-account
 ```
 
@@ -98,7 +102,7 @@ scripts/test-access.sh personal-account
 
 ```bash
 terraform -chdir=terraform apply -var enable_kubelet_acr_pull=false
-scripts/sp-login.sh
+source scripts/sp-login.sh
 scripts/render-manifests.sh pull-test-pod.yaml | kubectl apply -f -
 kubectl get events -n "$NS" --field-selector involvedObject.name=pull-test   # expect 401 / ImagePullBackOff
 kubectl delete pod pull-test -n "$NS"

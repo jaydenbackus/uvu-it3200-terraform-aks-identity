@@ -1,0 +1,11 @@
+$ terraform plan -out tfplan && terraform apply tfplan   (restore AcrPull)
+Plan: 1 to add, 0 to change, 0 to destroy.
+azurerm_role_assignment.kubelet_acr_pull[0]: Creation complete after 35s
+Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+
+kubelet role: AcrPull
+pod/pull-test created
+pod/pull-test condition met
+NAME        READY   STATUS    RESTARTS   AGE
+pull-test   1/1     Running   0          1s
+pod "pull-test" deleted from it3200-lab namespace

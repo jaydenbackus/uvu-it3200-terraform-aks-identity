@@ -4,7 +4,7 @@ student_name    = "jayden"
 location        = "westus3"
 
 # Optional overrides
-# node_vm_size               = "Standard_B2s"
+# node_vm_size               = "Standard_D2s_v6"
 # app_namespace              = "it3200-lab"
 # admin_user_object_id       = "00000000-0000-0000-0000-000000000000"
 # enable_kubelet_acr_pull    = true

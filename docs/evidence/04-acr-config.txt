@@ -1,0 +1,7 @@
+$ az acr show --query "{loginServer:loginServer,sku:sku.name,adminUserEnabled:adminUserEnabled,anonymousPull:anonymousPullEnabled}"
+{
+  "adminUserEnabled": false,
+  "anonymousPull": false,
+  "loginServer": "acruvuit3200jayden.azurecr.io",
+  "sku": "Basic"
+}

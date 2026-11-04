@@ -1,0 +1,9 @@
+# Service principal: requests outside its namespace (server-side dry run, nothing changes)
+$ kubectl create deployment probe --image=nginx -n default --dry-run=server
+error: failed to create deployment: deployments.apps is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot create resource "deployments" in API group "apps" in the namespace "default": User does not have access to the r
+$ kubectl delete namespace it3200-lab --dry-run=server
+Error from server (Forbidden): namespaces "it3200-lab" is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot delete resource "namespaces" in API group "" in the namespace "it3200-lab": User does not have access to the r
+$ kubectl create rolebinding self-admin --clusterrole=admin --user=098de086-3b5b-458b-8235-92bac20927b2 -n it3200-lab --dry-run=server
+error: failed to create rolebinding: rolebindings.rbac.authorization.k8s.io is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot create resource "rolebindings" in API group "rbac.authorization.k8s.io" in the namespace 
+$ kubectl get nodes
+Error from server (Forbidden): nodes is forbidden: User "098de086-3b5b-458b-8235-92bac20927b2" cannot list resource "nodes" in API group "" at the cluster scope: User does not have access to the resource in Azure. Update role assi

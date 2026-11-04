@@ -1,0 +1,29 @@
+Name                 Subscription
+-------------------  --------------
+jcjbackus@gmail.com  azure basic
+WARNING: Merged "aks-uvu-it3200-jayden" as current context in ~/.kube/it3200-user
+WARNING: Converted kubeconfig to use Azure CLI authentication.
+kubectl now uses your personal account (KUBECONFIG=~/.kube/it3200-user).
+$ az role assignment list --assignee <my object id> --scope <aks id> -o table
+Azure Kubernetes Service RBAC Reader
+Azure Kubernetes Service Cluster User Role
+(subscription-level, inherited):
+Owner
+
+== Access test: personal account (Owner on subscription; Cluster User + RBAC Reader on AKS) ==
+OK      cluster-info                   kubectl cluster-info
+DENIED  list nodes                     kubectl get nodes
+        Error from server (Forbidden): nodes is forbidden: User "dcc7b2fb-ed39-425c-bded-3418d129d47a" cannot list resource "nodes" in API group "" at the cluster scope: User does not have access to the resource in Azure. Update
+OK      list namespaces                kubectl get namespaces
+OK      list pods (all namespaces)     kubectl get pods -A
+OK      list pods (it3200-lab)         kubectl get pods -n it3200-lab
+-- permission checks (yes/no) --
+no      create deployments in it3200-lab kubectl auth can-i create deployments -n it3200-lab
+no      create services in it3200-lab  kubectl auth can-i create services -n it3200-lab
+no      create deployments default     kubectl auth can-i create deployments -n default
+no      read secrets in it3200-lab     kubectl auth can-i get secrets -n it3200-lab
+no      create rolebindings in it3200-lab kubectl auth can-i create rolebindings -n it3200-lab
+no      delete namespaces              kubectl auth can-i delete namespaces
+
+$ kubectl create deployment probe --image=nginx -n it3200-lab --dry-run=server
+error: failed to create deployment: deployments.apps is forbidden: User "dcc7b2fb-ed39-425c-bded-3418d129d47a" cannot create resource "deployments" in API group "apps" in the namespace "it3200-lab": User does not have access to the resource
