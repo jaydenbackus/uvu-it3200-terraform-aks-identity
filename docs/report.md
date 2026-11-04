@@ -313,6 +313,8 @@ The break did not show up, and that turned out to be the lesson.
 
 **At scale (100 clusters, 500 apps).** I would define clusters, registries, and identities as Terraform modules so every cluster gets the same roles by default. Each app would get its own deploy identity using workload identity federation from CI (no secrets), scoped to its namespace and environment. Access would be granted to Entra groups and reviewed regularly; prod elevation would go through PIM. A few shared registries per environment would serve many clusters, with images promoted from test to prod. GitOps (Flux or Argo CD) would apply manifests so humans rarely need write access, and policy checks in CI would block overbroad roles before they reach Azure.
 
+**Cleanup.** `terraform plan -destroy` listed only the 13 lab resources; `terraform destroy` removed them in about 5 minutes, including the node resource group. Afterward the subscription held no lab resource group, no service principal or app registration, and no non-user role assignments. The one remaining resource group, `NetworkWatcherRG`, is the free Network Watcher Azure creates on its own ([20](evidence/20-destroy-plan.txt)). I also deleted the local service-principal CLI profile and kubeconfigs.
+
 ## 13. AI assistance
 
 | What I asked | What it produced | How I checked it |

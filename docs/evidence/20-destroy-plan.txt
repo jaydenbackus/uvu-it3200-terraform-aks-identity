@@ -1,0 +1,42 @@
+  # azuread_application.deployer will be destroyed
+  # azuread_application_password.deployer will be destroyed
+  # azuread_service_principal.deployer will be destroyed
+  # azurerm_container_registry.acr will be destroyed
+  # azurerm_kubernetes_cluster.aks will be destroyed
+  # azurerm_resource_group.lab will be destroyed
+  # azurerm_role_assignment.kubelet_acr_pull[0] will be destroyed
+  # azurerm_role_assignment.sp_cluster_user[0] will be destroyed
+  # azurerm_role_assignment.sp_rbac_reader[0] will be destroyed
+  # azurerm_role_assignment.sp_rbac_writer_ns[0] will be destroyed
+  # azurerm_role_assignment.user_cluster_user will be destroyed
+  # azurerm_role_assignment.user_rbac_reader will be destroyed
+  # time_rotating.sp_secret will be destroyed
+Plan: 0 to add, 0 to change, 13 to destroy.
+azurerm_role_assignment.sp_rbac_reader[0]: Destruction complete after 4s
+azurerm_role_assignment.user_cluster_user: Destruction complete after 4s
+azurerm_role_assignment.user_rbac_reader: Destruction complete after 5s
+azurerm_role_assignment.kubelet_acr_pull[0]: Destruction complete after 6s
+azurerm_role_assignment.sp_rbac_writer_ns[0]: Destruction complete after 6s
+azurerm_role_assignment.sp_cluster_user[0]: Destruction complete after 7s
+azuread_application_password.deployer: Destruction complete after 21s
+time_rotating.sp_secret: Destruction complete after 0s
+azurerm_container_registry.acr: Destruction complete after 13s
+azuread_service_principal.deployer: Destruction complete after 22s
+azuread_application.deployer: Destruction complete after 21s
+azurerm_kubernetes_cluster.aks: Destruction complete after 3m52s
+azurerm_resource_group.lab: Destruction complete after 22s
+Apply complete! Resources: 0 added, 0 changed, 13 destroyed.
+
+# Post-destroy verification (2026-11-04T04:44Z)
+$ az group list --query "[].name" -o tsv
+NetworkWatcherRG
+(end of list)
+$ az resource list --query "length(@)"
+1
+$ az ad sp list --display-name sp-uvu-it3200 --query "length(@)"
+0
+$ az ad app list --display-name sp-uvu-it3200 --query "length(@)"
+0
+$ az role assignment list --all --query "[?principalType!='User'] | length(@)"
+0
+(NetworkWatcherRG holds Azure's auto-created, free Network Watcher; not created by Terraform.)
